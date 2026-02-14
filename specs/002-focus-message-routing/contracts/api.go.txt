@@ -1,0 +1,70 @@
+// Package nav — API contract for Focus Message Routing feature.
+//
+// This file defines the MODIFIED public API surface. It is
+// pseudo-code for planning purposes — not compilable Go.
+package nav
+
+import tea "github.com/charmbracelet/bubbletea"
+
+// --- MODIFIED Interface ---
+
+// Focusable represents a UI component that can receive and lose
+// keyboard focus and process messages. All focusable components
+// must implement tea.Model (Init, Update, View) in addition to the
+// focus methods.
+//
+// The FocusManager routes non-focus messages to the focused item
+// by calling its tea.Model.Update method. The returned tea.Model
+// is cast back to Focusable and stored to preserve updated state.
+//
+// BREAKING CHANGE: Focusable now embeds tea.Model. Existing types
+// that only implemented Focus/Blur/Focused must add Init, Update,
+// and View methods.
+type Focusable interface {
+	tea.Model
+
+	// Focus activates the component for input. Returns a command
+	// (e.g., to blink a cursor).
+	Focus() tea.Cmd
+
+	// Blur deactivates the component.
+	Blur()
+
+	// Focused reports whether the component currently has focus.
+	Focused() bool
+}
+
+// --- MODIFIED: FocusManager.Update ---
+
+// Update processes a message. The routing logic is:
+//
+//  1. Tab/Shift+Tab → focus cycling only. The focus-cycling message
+//     is NOT forwarded to any component. (FR-004)
+//  2. Mouse press on bounded item → move focus (if different item),
+//     then forward the click to the focused item via
+//     item.Update(msg). Store the returned Focusable. (FR-008)
+//  3. All other messages → forward to the focused item via
+//     item.Update(msg). Store the returned Focusable. (FR-001)
+//  4. If no item is focused (index -1) → no routing. (FR-005)
+//
+// The returned tea.Model from item.Update is asserted back to
+// Focusable and stored in the items slice. (FR-003)
+//
+// Commands from focus changes and message routing are combined
+// via tea.Batch. (FR-006)
+func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd)
+
+// --- UNCHANGED ---
+
+// All existing FocusManager methods retain their current signatures
+// and behavior:
+//
+//   NewFocusManager(items ...Focusable) FocusManager
+//   FocusManager.SetItems(items ...Focusable) FocusManager
+//   FocusManager.FocusedIndex() int
+//   FocusManager.FocusIndex(index int) (FocusManager, tea.Cmd)
+//   FocusManager.String() string
+//
+// Bounded interface is unchanged.
+// FocusChangedMsg is unchanged.
+// No new interfaces or types are introduced.

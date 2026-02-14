@@ -1,0 +1,170 @@
+// Package nav provides screen navigation and focus management for
+// Bubble Tea terminal UI applications.
+//
+// This file defines the public API contract. It is pseudo-code for
+// planning purposes — not compilable Go.
+package nav
+
+import tea "github.com/charmbracelet/bubbletea"
+
+// --- Interfaces ---
+
+// Screen represents a navigable screen in the application.
+// Any tea.Model can serve as a Screen.
+type Screen interface {
+	// Init returns an initial command when the screen is first created.
+	Init() tea.Cmd
+
+	// Update processes a message and returns the updated screen and
+	// an optional command. Navigation requests (PushMsg, PopMsg,
+	// ReplaceMsg) returned as commands are intercepted by the Stack.
+	Update(tea.Msg) (Screen, tea.Cmd)
+
+	// View renders the screen's UI as a string.
+	View() string
+}
+
+// LifecycleScreen is an optional interface for screens that need
+// notifications when they become visible or hidden due to stack
+// changes. Implement this in addition to Screen.
+type LifecycleScreen interface {
+	Screen
+
+	// Appeared is called when this screen becomes the active screen
+	// (after push, pop-reveal, or replace). Returns a command for
+	// async initialization.
+	Appeared() tea.Cmd
+
+	// Disappeared is called when this screen loses active status
+	// (pushed over, popped, or replaced). Synchronous cleanup.
+	Disappeared()
+}
+
+// Focusable represents a UI component that can receive and lose
+// keyboard focus. Compatible with charmbracelet/bubbles convention.
+type Focusable interface {
+	// Focus activates the component for input. Returns a command
+	// (e.g., to blink a cursor).
+	Focus() tea.Cmd
+
+	// Blur deactivates the component.
+	Blur()
+
+	// Focused reports whether the component currently has focus.
+	Focused() bool
+}
+
+// Bounded is an optional interface for focusable components that
+// support mouse-click targeting. Implement in addition to Focusable.
+type Bounded interface {
+	// Bounds returns the component's bounding rectangle in terminal
+	// coordinates (zero-based, top-left origin).
+	Bounds() (x, y, width, height int)
+}
+
+// --- Stack (navigation stack) ---
+
+// NewStack creates a navigation stack with the given root screen.
+// The root screen cannot be popped. Panics if root is nil.
+func NewStack(root Screen) Stack
+
+// Stack manages an ordered stack of screens. It implements
+// tea.Model. The topmost screen is the active screen and receives
+// all messages (except navigation messages, which the Stack
+// intercepts).
+type Stack struct {
+	// unexported fields
+}
+
+// Init initializes the stack by calling Init on the root screen.
+func (s Stack) Init() tea.Cmd
+
+// Update processes a message. Navigation messages (PushMsg, PopMsg,
+// ReplaceMsg) modify the stack. All other messages are forwarded to
+// the active screen's Update method.
+func (s Stack) Update(msg tea.Msg) (tea.Model, tea.Cmd)
+
+// View renders the active screen's View.
+func (s Stack) View() string
+
+// String returns a human-readable representation of the stack
+// (e.g., "Stack[3 screens, active: 2]") for debugging.
+func (s Stack) String() string
+
+// Depth returns the number of screens on the stack.
+func (s Stack) Depth() int
+
+// --- FocusManager ---
+
+// NewFocusManager creates a focus manager with the given focusable
+// items. The first item receives initial focus. If items is empty,
+// no item is focused.
+func NewFocusManager(items ...Focusable) FocusManager
+
+// FocusManager manages sequential focus order within a screen.
+// It is a value type — screens hold it as a field and delegate
+// message handling to it.
+type FocusManager struct {
+	// unexported fields
+}
+
+// Update processes a message. Handles Tab (next), Shift+Tab
+// (previous), and mouse clicks (if items implement Bounded).
+// Returns the updated FocusManager and an optional command.
+func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd)
+
+// SetItems replaces the focusable items list. Focus resets to the
+// first item (or no focus if empty). Call during the screen's
+// Update phase; changes take effect on the next render.
+func (fm FocusManager) SetItems(items ...Focusable) FocusManager
+
+// FocusedIndex returns the index of the currently focused item,
+// or -1 if no item is focused.
+func (fm FocusManager) FocusedIndex() int
+
+// FocusIndex sets focus to the item at the given index. Returns
+// an updated FocusManager and a command (from the focused item's
+// Focus method). Index -1 blurs all items.
+func (fm FocusManager) FocusIndex(index int) (FocusManager, tea.Cmd)
+
+// String returns a human-readable representation of the focus
+// state (e.g., "FocusManager[3 items, focused: 1]") for debugging.
+func (fm FocusManager) String() string
+
+// --- Navigation Messages ---
+
+// Push returns a command that pushes a screen onto the stack.
+func Push(screen Screen) tea.Cmd
+
+// Pop returns a command that pops the top screen from the stack.
+func Pop() tea.Cmd
+
+// Replace returns a command that replaces the top screen.
+func Replace(screen Screen) tea.Cmd
+
+// PushMsg requests pushing a screen onto the navigation stack.
+type PushMsg struct{ Screen Screen }
+
+// PopMsg requests popping the top screen from the navigation stack.
+type PopMsg struct{}
+
+// ReplaceMsg requests replacing the top screen on the stack.
+type ReplaceMsg struct{ Screen Screen }
+
+// --- Lifecycle Messages ---
+
+// ScreenAppearedMsg is delivered to a LifecycleScreen when it
+// becomes the active screen.
+type ScreenAppearedMsg struct{}
+
+// ScreenDisappearedMsg is delivered to a LifecycleScreen when it
+// loses active status.
+type ScreenDisappearedMsg struct{}
+
+// --- Focus Messages ---
+
+// FocusChangedMsg is emitted by FocusManager when focus changes.
+type FocusChangedMsg struct {
+	Previous int // index of previously focused item (-1 if none)
+	Current  int // index of newly focused item (-1 if none)
+}

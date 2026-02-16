@@ -1,0 +1,86 @@
+// Package nav — public API contract after 003-lifecycle-msg-routing
+//
+// This file documents the expected public API surface. It is not
+// compiled; it serves as a reference for task implementation.
+
+package nav
+
+import tea "github.com/charmbracelet/bubbletea"
+
+// --- Unchanged types ---
+
+// Screen represents a navigable screen in the application.
+type Screen interface {
+	Init() tea.Cmd
+	Update(tea.Msg) (Screen, tea.Cmd)
+	View() string
+}
+
+// Focusable represents a UI component that can receive and lose focus.
+type Focusable interface {
+	tea.Model
+	Focus() tea.Cmd
+	Blur()
+}
+
+// Bounded is an optional interface for mouse-click targeting.
+type Bounded interface {
+	Bounds() (x, y, width, height int)
+}
+
+// Navigation messages (unchanged).
+type PushMsg struct{ Screen Screen }
+type PopMsg struct{}
+type ReplaceMsg struct{ Screen Screen }
+
+// Navigation commands (unchanged).
+func Push(screen Screen) tea.Cmd
+func Pop() tea.Cmd
+func Replace(screen Screen) tea.Cmd
+
+// Focus messages (unchanged).
+type FocusChangedMsg struct {
+	Previous int
+	Current  int
+}
+
+// Stack (unchanged API, modified internals).
+type Stack struct{ /* ... */ }
+
+func NewStack(root Screen) Stack
+func (s Stack) Init() tea.Cmd
+func (s Stack) Update(msg tea.Msg) (tea.Model, tea.Cmd)
+func (s Stack) View() string
+func (s Stack) Depth() int
+func (s Stack) String() string
+
+// FocusManager (unchanged).
+type FocusManager struct{ /* ... */ }
+
+func NewFocusManager(items ...Focusable) FocusManager
+func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd)
+func (fm FocusManager) FocusedIndex() int
+func (fm FocusManager) FocusIndex(index int) (FocusManager, tea.Cmd)
+func (fm FocusManager) SetItems(items ...Focusable) FocusManager
+func (fm FocusManager) String() string
+
+// --- Lifecycle messages (kept, now primary mechanism) ---
+
+// ScreenAppearedMsg is sent to a screen's Update when it becomes active.
+type ScreenAppearedMsg struct{}
+
+// ScreenDisappearedMsg is sent to a screen's Update when it loses active status.
+type ScreenDisappearedMsg struct{}
+
+// --- REMOVED ---
+//
+// The following are removed from the public API:
+//
+// type LifecycleScreen interface {
+//     Screen
+//     Appeared() tea.Cmd
+//     Disappeared()
+// }
+//
+// Screens that previously implemented LifecycleScreen should instead
+// handle ScreenAppearedMsg and ScreenDisappearedMsg in their Update method.

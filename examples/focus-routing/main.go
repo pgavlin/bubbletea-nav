@@ -28,6 +28,10 @@ func (f *textField) Init() tea.Cmd { return nil }
 
 func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case nav.FocusMsg:
+		f.focused = true
+	case nav.BlurMsg:
+		f.focused = false
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyRunes:
@@ -48,9 +52,6 @@ func (f *textField) View() string {
 	return fmt.Sprintf("  %s:  %s", f.label, f.value)
 }
 
-func (f *textField) Focus() tea.Cmd { f.focused = true; return nil }
-func (f *textField) Blur()          { f.focused = false }
-
 // -- formModel: top-level tea.Model --
 
 type formModel struct {
@@ -64,8 +65,9 @@ func newFormModel() formModel {
 		newTextField("Email"),
 		newTextField("City"),
 	}
+	fm, _ := nav.NewFocusManager(fields[0], fields[1], fields[2])
 	return formModel{
-		focus:  nav.NewFocusManager(fields[0], fields[1], fields[2]),
+		focus:  fm,
 		fields: fields,
 	}
 }

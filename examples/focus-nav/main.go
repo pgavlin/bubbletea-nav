@@ -12,7 +12,7 @@ import (
 	nav "github.com/pgavlin/bubbletea-nav"
 )
 
-// -- textField: a Focusable text input --
+// -- textField: handles FocusMsg/BlurMsg for focus state --
 
 type textField struct {
 	label   string
@@ -28,6 +28,10 @@ func (f *textField) Init() tea.Cmd { return nil }
 
 func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case nav.FocusMsg:
+		f.focused = true
+	case nav.BlurMsg:
+		f.focused = false
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyRunes:
@@ -47,9 +51,6 @@ func (f *textField) View() string {
 	}
 	return fmt.Sprintf("  %s:  %s", f.label, f.value)
 }
-
-func (f *textField) Focus() tea.Cmd { f.focused = true; return nil }
-func (f *textField) Blur()          { f.focused = false }
 
 // -- contact data --
 
@@ -75,7 +76,7 @@ func newListScreen() listScreen {
 
 func (s listScreen) Init() tea.Cmd { return nil }
 
-func (s listScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+func (s listScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -125,16 +126,17 @@ func newEditScreen(index int, c contact) editScreen {
 		newTextField("Email", c.email),
 		newTextField("Phone", c.phone),
 	}
+	fm, _ := nav.NewFocusManager(fields[0], fields[1], fields[2])
 	return editScreen{
 		index:  index,
-		focus:  nav.NewFocusManager(fields[0], fields[1], fields[2]),
+		focus:  fm,
 		fields: fields,
 	}
 }
 
 func (s editScreen) Init() tea.Cmd { return nil }
 
-func (s editScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+func (s editScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle screen-level keys before delegating to FocusManager.
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.Type {

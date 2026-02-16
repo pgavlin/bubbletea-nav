@@ -27,7 +27,7 @@ func newHomeScreen() homeScreen {
 
 func (s homeScreen) Init() tea.Cmd { return nil }
 
-func (s homeScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+func (s homeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -74,7 +74,7 @@ func newDetailScreen(item string) detailScreen {
 
 func (s detailScreen) Init() tea.Cmd { return nil }
 
-func (s detailScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+func (s detailScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {

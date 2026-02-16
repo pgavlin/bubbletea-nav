@@ -6,28 +6,21 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Focusable represents a UI component that can receive and lose
-// keyboard focus and process messages. All focusable components must
-// implement tea.Model (Init, Update, View) in addition to the focus
-// methods. The FocusManager routes non-focus messages to the focused
-// item by calling its tea.Model Update method.
-type Focusable interface {
-	tea.Model
-
-	// Focus activates the component for input.
-	Focus() tea.Cmd
-
-	// Blur deactivates the component.
-	Blur()
-}
-
-// Bounded is an optional interface for focusable components that
-// support mouse-click targeting. Implement in addition to Focusable.
+// Bounded is an optional interface for models that support mouse-click
+// targeting. Implement in addition to tea.Model.
 type Bounded interface {
 	// Bounds returns the component's bounding rectangle in terminal
 	// coordinates (zero-based, top-left origin).
 	Bounds() (x, y, width, height int)
 }
+
+// FocusMsg is sent to a model's Update method when it gains keyboard
+// focus. Handle it in Update to activate input state (e.g., show cursor).
+type FocusMsg struct{}
+
+// BlurMsg is sent to a model's Update method when it loses keyboard
+// focus. Handle it in Update to deactivate input state (e.g., hide cursor).
+type BlurMsg struct{}
 
 // FocusChangedMsg is emitted by FocusManager when focus changes.
 type FocusChangedMsg struct {
@@ -39,29 +32,32 @@ type FocusChangedMsg struct {
 // It is a value type — screens hold it as a field and delegate
 // message handling to it.
 type FocusManager struct {
-	items      []Focusable
+	items      []tea.Model
 	focusIndex int
 }
 
-// NewFocusManager creates a focus manager with the given focusable
-// items. The first item receives initial focus. If items is empty,
-// no item is focused.
-func NewFocusManager(items ...Focusable) FocusManager {
+// NewFocusManager creates a focus manager with the given items.
+// The first item receives a FocusMsg through its Update method.
+// If items is empty, no item is focused. Returns any command
+// produced by the initial focus delivery.
+func NewFocusManager(items ...tea.Model) (FocusManager, tea.Cmd) {
 	fm := FocusManager{
 		items:      items,
 		focusIndex: -1,
 	}
 	if len(items) > 0 {
 		fm.focusIndex = 0
-		items[0].Focus()
+		updated, cmd := items[0].Update(FocusMsg{})
+		fm.items[0] = updated
+		return fm, cmd
 	}
-	return fm
+	return fm, nil
 }
 
 // Update processes a message. Tab and Shift+Tab cycle focus and are
 // not forwarded. Mouse clicks on bounded items move focus then
 // forward the click. All other messages are forwarded to the focused
-// item via its tea.Model Update method.
+// item via its Update method.
 func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd) {
 	if len(fm.items) == 0 {
 		return fm, nil
@@ -101,13 +97,13 @@ func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd) {
 }
 
 // routeMessage forwards a message to the focused item via its
-// tea.Model Update method. Returns the command from the item.
+// Update method. Returns the command from the item.
 func (fm FocusManager) routeMessage(msg tea.Msg) tea.Cmd {
 	if fm.focusIndex < 0 || fm.focusIndex >= len(fm.items) {
 		return nil
 	}
 	updated, cmd := fm.items[fm.focusIndex].Update(msg)
-	fm.items[fm.focusIndex] = updated.(Focusable)
+	fm.items[fm.focusIndex] = updated
 	return cmd
 }
 
@@ -125,42 +121,64 @@ func (fm FocusManager) setFocus(index int) (FocusManager, tea.Cmd) {
 	return fm.setFocusWithPrev(fm.focusIndex, index)
 }
 
-// setFocusWithPrev performs the blur/focus transition and emits
-// FocusChangedMsg.
+// setFocusWithPrev performs the blur/focus transition via BlurMsg and
+// FocusMsg messages, and emits FocusChangedMsg. Blur is delivered
+// before focus per FR-010.
 func (fm FocusManager) setFocusWithPrev(prev, next int) (FocusManager, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	// Deliver BlurMsg to the old item.
 	if prev >= 0 && prev < len(fm.items) {
-		fm.items[prev].Blur()
+		updated, cmd := fm.items[prev].Update(BlurMsg{})
+		fm.items[prev] = updated
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
+
 	fm.focusIndex = next
-	var focusCmd tea.Cmd
+
+	// Deliver FocusMsg to the new item.
 	if next >= 0 && next < len(fm.items) {
-		focusCmd = fm.items[next].Focus()
+		updated, cmd := fm.items[next].Update(FocusMsg{})
+		fm.items[next] = updated
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	changeMsg := FocusChangedMsg{Previous: prev, Current: next}
-	changeCmd := func() tea.Msg { return changeMsg }
+	cmds = append(cmds, func() tea.Msg { return changeMsg })
 
-	if focusCmd != nil {
-		return fm, tea.Batch(focusCmd, changeCmd)
-	}
-	return fm, changeCmd
+	return fm, tea.Batch(cmds...)
 }
 
-// SetItems replaces the focusable items list. Focus resets to the
-// first item (or no focus if empty).
-func (fm FocusManager) SetItems(items ...Focusable) FocusManager {
+// SetItems replaces the items list. The previously focused item
+// receives BlurMsg and the first new item receives FocusMsg, both
+// via Update. Focus resets to the first item (or no focus if empty).
+func (fm FocusManager) SetItems(items ...tea.Model) (FocusManager, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	// Blur the currently focused item.
 	if fm.focusIndex >= 0 && fm.focusIndex < len(fm.items) {
-		fm.items[fm.focusIndex].Blur()
+		updated, cmd := fm.items[fm.focusIndex].Update(BlurMsg{})
+		fm.items[fm.focusIndex] = updated
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	fm.items = items
 	fm.focusIndex = -1
 	if len(items) > 0 {
 		fm.focusIndex = 0
-		items[0].Focus()
+		updated, cmd := items[0].Update(FocusMsg{})
+		fm.items[0] = updated
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
-	return fm
+	return fm, tea.Batch(cmds...)
 }
 
 // FocusedIndex returns the index of the currently focused item,
@@ -186,14 +204,19 @@ func (fm FocusManager) FocusIndex(index int) (FocusManager, tea.Cmd) {
 
 	if index == -1 {
 		// Blur all.
+		var cmds []tea.Cmd
 		if prev >= 0 && prev < len(fm.items) {
-			fm.items[prev].Blur()
+			updated, cmd := fm.items[prev].Update(BlurMsg{})
+			fm.items[prev] = updated
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
 		fm.focusIndex = -1
-		changeCmd := func() tea.Msg {
+		cmds = append(cmds, func() tea.Msg {
 			return FocusChangedMsg{Previous: prev, Current: -1}
-		}
-		return fm, changeCmd
+		})
+		return fm, tea.Batch(cmds...)
 	}
 
 	return fm.setFocusWithPrev(prev, index)

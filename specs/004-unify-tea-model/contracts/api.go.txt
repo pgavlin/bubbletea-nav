@@ -1,0 +1,90 @@
+// Public API contract for bubbletea-nav after 004-unify-tea-model.
+//
+// This file documents the expected exported symbols. It is NOT compiled.
+// Use it as a reference for implementation and verification.
+
+package nav
+
+import tea "github.com/charmbracelet/bubbletea"
+
+// --- Navigation ---
+
+// PushMsg requests pushing a screen onto the navigation stack.
+type PushMsg struct{ Screen tea.Model }
+
+// PopMsg requests popping the top screen from the navigation stack.
+type PopMsg struct{}
+
+// ReplaceMsg requests replacing the top screen on the stack.
+type ReplaceMsg struct{ Screen tea.Model }
+
+// Push returns a command that pushes a screen onto the stack.
+func Push(screen tea.Model) tea.Cmd
+
+// Pop returns a command that pops the top screen from the stack.
+func Pop() tea.Cmd
+
+// Replace returns a command that replaces the top screen.
+func Replace(screen tea.Model) tea.Cmd
+
+// Stack manages an ordered stack of screens. It implements tea.Model.
+type Stack struct{ /* unexported */ }
+
+// NewStack creates a navigation stack with the given root screen.
+func NewStack(root tea.Model) Stack
+
+func (s Stack) Init() tea.Cmd
+func (s Stack) Update(tea.Msg) (tea.Model, tea.Cmd)
+func (s Stack) View() string
+func (s Stack) Depth() int
+func (s Stack) String() string
+
+// --- Lifecycle Messages ---
+
+// ScreenAppearedMsg is sent to a screen's Update method when it
+// becomes the active (topmost) screen.
+type ScreenAppearedMsg struct{}
+
+// ScreenDisappearedMsg is sent to a screen's Update method when it
+// loses active status.
+type ScreenDisappearedMsg struct{}
+
+// --- Focus Management ---
+
+// FocusMsg is sent to a model's Update method when it gains keyboard focus.
+type FocusMsg struct{}
+
+// BlurMsg is sent to a model's Update method when it loses keyboard focus.
+type BlurMsg struct{}
+
+// Bounded is an optional interface for models that support mouse-click
+// targeting.
+type Bounded interface {
+	Bounds() (x, y, width, height int)
+}
+
+// FocusChangedMsg is emitted by FocusManager when focus changes.
+type FocusChangedMsg struct {
+	Previous int
+	Current  int
+}
+
+// FocusManager manages sequential focus order within a screen.
+type FocusManager struct{ /* unexported */ }
+
+// NewFocusManager creates a focus manager with the given items.
+// The first item receives FocusMsg. Returns commands from the initial focus.
+func NewFocusManager(items ...tea.Model) (FocusManager, tea.Cmd)
+
+func (fm FocusManager) Update(tea.Msg) (FocusManager, tea.Cmd)
+func (fm FocusManager) FocusedIndex() int
+func (fm FocusManager) FocusIndex(index int) (FocusManager, tea.Cmd)
+func (fm FocusManager) SetItems(items ...tea.Model) (FocusManager, tea.Cmd)
+func (fm FocusManager) String() string
+
+// --- Removed ---
+//
+// The following types are REMOVED from the public API:
+//
+//   type Screen interface { ... }      // Use tea.Model instead
+//   type Focusable interface { ... }   // Use tea.Model + FocusMsg/BlurMsg instead

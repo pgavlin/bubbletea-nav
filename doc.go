@@ -19,12 +19,12 @@
 //	p.Run()
 //
 //	// In a screen's Update method, push a new screen:
-//	func (s myScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+//	func (s myScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    return s, nav.Push(detailScreen{})
 //	}
 //
 //	// Or pop back to the previous screen:
-//	func (s myScreen) Update(msg tea.Msg) (nav.Screen, tea.Cmd) {
+//	func (s myScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    return s, nav.Pop()
 //	}
 package nav

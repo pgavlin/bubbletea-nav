@@ -1,25 +1,10 @@
 package nav
 
-import tea "github.com/charmbracelet/bubbletea"
-
-// LifecycleScreen is an optional interface for screens that need
-// notifications when they become visible or hidden due to stack
-// changes. Implement this in addition to Screen.
-type LifecycleScreen interface {
-	Screen
-
-	// Appeared is called when this screen becomes the active screen
-	// (after push, pop-reveal, or replace). Returns a command for
-	// async initialization.
-	Appeared() tea.Cmd
-
-	// Disappeared is called when this screen loses active status
-	// (pushed over, popped, or replaced). Synchronous cleanup.
-	Disappeared()
-}
-
-// ScreenAppearedMsg is sent to a screen when it becomes active.
+// ScreenAppearedMsg is sent to a screen's Update method when it
+// becomes the active (topmost) screen after a push, pop-reveal,
+// or replace operation.
 type ScreenAppearedMsg struct{}
 
-// ScreenDisappearedMsg is sent to a screen when it loses active status.
+// ScreenDisappearedMsg is sent to a screen's Update method when it
+// loses active status due to being pushed over, popped, or replaced.
 type ScreenDisappearedMsg struct{}

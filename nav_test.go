@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// mockScreen is a minimal Screen for testing.
+// mockScreen is a minimal tea.Model for testing.
 type mockScreen struct {
 	id       string
 	initCmd  tea.Cmd
@@ -20,20 +20,20 @@ func newMockScreen(id string) mockScreen {
 }
 
 func (s mockScreen) Init() tea.Cmd { return s.initCmd }
-func (s mockScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
+func (s mockScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	s.lastMsg = msg
 	return s, nil
 }
 func (s mockScreen) View() string { return s.viewText }
 
-// recordingScreen implements Screen, recording all messages received.
+// recordingScreen implements tea.Model, recording all messages received.
 type recordingScreen struct {
 	messages []tea.Msg
 	viewText string
 }
 
 func (s recordingScreen) Init() tea.Cmd { return nil }
-func (s recordingScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
+func (s recordingScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	s.messages = append(s.messages, msg)
 	return s, nil
 }
@@ -272,7 +272,7 @@ func TestStackReplaceCallsInit(t *testing.T) {
 
 // --- Phase 6: US4 Integration Tests ---
 
-// focusScreen is a Screen with a FocusManager for integration testing.
+// focusScreen is a tea.Model with a FocusManager for integration testing.
 type focusScreen struct {
 	id    string
 	focus FocusManager
@@ -281,20 +281,21 @@ type focusScreen struct {
 
 func newFocusScreen(id string, itemCount int) *focusScreen {
 	items := make([]*mockFocusable, itemCount)
-	focusables := make([]Focusable, itemCount)
+	models := make([]tea.Model, itemCount)
 	for i := range items {
 		items[i] = &mockFocusable{}
-		focusables[i] = items[i]
+		models[i] = items[i]
 	}
+	fm, _ := NewFocusManager(models...)
 	return &focusScreen{
 		id:    id,
-		focus: NewFocusManager(focusables...),
+		focus: fm,
 		items: items,
 	}
 }
 
 func (s *focusScreen) Init() tea.Cmd { return nil }
-func (s *focusScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
+func (s *focusScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	s.focus, cmd = s.focus.Update(msg)
 	return s, cmd

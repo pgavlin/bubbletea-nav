@@ -6,32 +6,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Screen represents a navigable screen in the application.
-// It is similar to tea.Model but Update returns Screen instead of
-// tea.Model for type safety within the navigation stack.
-type Screen interface {
-	// Init returns an initial command when the screen is first created.
-	Init() tea.Cmd
-
-	// Update processes a message and returns the updated screen and
-	// an optional command.
-	Update(tea.Msg) (Screen, tea.Cmd)
-
-	// View renders the screen as a string.
-	View() string
-}
-
 // PushMsg requests pushing a screen onto the navigation stack.
-type PushMsg struct{ Screen Screen }
+type PushMsg struct{ Screen tea.Model }
 
 // PopMsg requests popping the top screen from the navigation stack.
 type PopMsg struct{}
 
 // ReplaceMsg requests replacing the top screen on the stack.
-type ReplaceMsg struct{ Screen Screen }
+type ReplaceMsg struct{ Screen tea.Model }
 
 // Push returns a command that pushes a screen onto the stack.
-func Push(screen Screen) tea.Cmd {
+func Push(screen tea.Model) tea.Cmd {
 	return func() tea.Msg {
 		return PushMsg{Screen: screen}
 	}
@@ -45,7 +30,7 @@ func Pop() tea.Cmd {
 }
 
 // Replace returns a command that replaces the top screen.
-func Replace(screen Screen) tea.Cmd {
+func Replace(screen tea.Model) tea.Cmd {
 	return func() tea.Msg {
 		return ReplaceMsg{Screen: screen}
 	}
@@ -55,18 +40,18 @@ func Replace(screen Screen) tea.Cmd {
 // The topmost screen is the active screen and receives all messages
 // except navigation messages, which the Stack intercepts.
 type Stack struct {
-	screens     []Screen
+	screens     []tea.Model
 	pendingOps  []tea.Msg
 	inLifecycle bool
 }
 
 // NewStack creates a navigation stack with the given root screen.
 // The root screen cannot be popped. Panics if root is nil.
-func NewStack(root Screen) Stack {
+func NewStack(root tea.Model) Stack {
 	if root == nil {
 		panic("nav: root screen must not be nil")
 	}
-	return Stack{screens: []Screen{root}}
+	return Stack{screens: []tea.Model{root}}
 }
 
 // Init initializes the stack by calling Init on the root screen.
@@ -100,18 +85,24 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case PushMsg:
-		oldTop := s.screens[len(s.screens)-1]
 		s.screens = append(s.screens, msg.Screen)
+		newIdx := len(s.screens) - 1
 
 		// Lifecycle: old top disappears, new top appears.
 		s.inLifecycle = true
-		s.dispatchDisappeared(oldTop)
-		if cmd := s.dispatchAppeared(msg.Screen); cmd != nil {
+		updated, cmd := s.screens[newIdx-1].Update(ScreenDisappearedMsg{})
+		s.screens[newIdx-1] = updated
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		updated, cmd = s.screens[newIdx].Update(ScreenAppearedMsg{})
+		s.screens[newIdx] = updated
+		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 		s.inLifecycle = false
 
-		if cmd := msg.Screen.Init(); cmd != nil {
+		if cmd := s.screens[newIdx].Init(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 
@@ -121,12 +112,17 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		popped := s.screens[len(s.screens)-1]
 		s.screens = s.screens[:len(s.screens)-1]
-		newTop := s.screens[len(s.screens)-1]
+		topIdx := len(s.screens) - 1
 
 		// Lifecycle: popped screen disappears, revealed screen appears.
 		s.inLifecycle = true
-		s.dispatchDisappeared(popped)
-		if cmd := s.dispatchAppeared(newTop); cmd != nil {
+		_, cmd := popped.Update(ScreenDisappearedMsg{})
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{})
+		s.screens[topIdx] = updated
+		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 		s.inLifecycle = false
@@ -134,16 +130,22 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ReplaceMsg:
 		oldTop := s.screens[len(s.screens)-1]
 		s.screens[len(s.screens)-1] = msg.Screen
+		topIdx := len(s.screens) - 1
 
 		// Lifecycle: old top disappears, new top appears.
 		s.inLifecycle = true
-		s.dispatchDisappeared(oldTop)
-		if cmd := s.dispatchAppeared(msg.Screen); cmd != nil {
+		_, cmd := oldTop.Update(ScreenDisappearedMsg{})
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{})
+		s.screens[topIdx] = updated
+		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 		s.inLifecycle = false
 
-		if cmd := msg.Screen.Init(); cmd != nil {
+		if cmd := s.screens[topIdx].Init(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -164,23 +166,6 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return s, tea.Batch(cmds...)
-}
-
-// dispatchDisappeared calls Disappeared on screen if it implements
-// LifecycleScreen.
-func (s Stack) dispatchDisappeared(screen Screen) {
-	if ls, ok := screen.(LifecycleScreen); ok {
-		ls.Disappeared()
-	}
-}
-
-// dispatchAppeared calls Appeared on screen if it implements
-// LifecycleScreen and returns the command.
-func (s Stack) dispatchAppeared(screen Screen) tea.Cmd {
-	if ls, ok := screen.(LifecycleScreen); ok {
-		return ls.Appeared()
-	}
-	return nil
 }
 
 // View renders the active screen.

@@ -6,13 +6,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// lifecycleScreen records Appeared/Disappeared events.
+// lifecycleScreen records lifecycle events via Update.
 type lifecycleScreen struct {
-	id       string
-	events   []string
-	viewText string
-	initCmd  tea.Cmd
-	onAppear tea.Cmd
+	id          string
+	events      []string
+	viewText    string
+	initCmd     tea.Cmd
+	onAppear    tea.Cmd
+	onDisappear tea.Cmd
 }
 
 func newLifecycleScreen(id string) *lifecycleScreen {
@@ -20,17 +21,18 @@ func newLifecycleScreen(id string) *lifecycleScreen {
 }
 
 func (s *lifecycleScreen) Init() tea.Cmd { return s.initCmd }
-func (s *lifecycleScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
+func (s *lifecycleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case ScreenAppearedMsg:
+		s.events = append(s.events, "appeared")
+		return s, s.onAppear
+	case ScreenDisappearedMsg:
+		s.events = append(s.events, "disappeared")
+		return s, s.onDisappear
+	}
 	return s, nil
 }
 func (s *lifecycleScreen) View() string { return s.viewText }
-func (s *lifecycleScreen) Appeared() tea.Cmd {
-	s.events = append(s.events, "appeared")
-	return s.onAppear
-}
-func (s *lifecycleScreen) Disappeared() {
-	s.events = append(s.events, "disappeared")
-}
 
 // T029: Lifecycle events for push, pop, replace, and non-lifecycle screens.
 func TestLifecyclePush(t *testing.T) {
@@ -95,13 +97,13 @@ func TestLifecycleReplace(t *testing.T) {
 	}
 }
 
-func TestLifecycleNonLifecycleScreenSkipped(t *testing.T) {
-	// mockScreen does not implement LifecycleScreen.
+func TestLifecycleScreenIgnoresUnhandledMessages(t *testing.T) {
+	// mockScreen does not handle ScreenAppearedMsg/ScreenDisappearedMsg.
 	root := newMockScreen("root")
 	detail := newMockScreen("detail")
 
 	var model tea.Model = NewStack(root)
-	// This should not panic even though screens don't implement lifecycle.
+	// This should not panic even though screens don't handle lifecycle messages.
 	model, _ = model.Update(PushMsg{Screen: detail})
 	model, _ = model.Update(PopMsg{})
 
@@ -162,6 +164,99 @@ func assertEvents(t *testing.T, name string, got, want []string) {
 		}
 	}
 }
+
+func TestLifecycleAppearedStatePersists(t *testing.T) {
+	// Screen updates its viewText when it receives ScreenAppearedMsg.
+	root := newLifecycleScreen("root")
+	detail := newLifecycleScreen("detail")
+	detail.onAppear = nil // no command, but Update still mutates state
+	// Override detail's Update to change viewText on appear.
+	var model tea.Model = NewStack(root)
+
+	// Push detail — its Update receives ScreenAppearedMsg and records "appeared".
+	model, _ = model.Update(PushMsg{Screen: detail})
+
+	// The lifecycleScreen mock appends "appeared" to events.
+	// Verify the state change persists via the stack's View.
+	stack := model.(Stack)
+	if got := stack.View(); got != "detail" {
+		t.Fatalf("expected view %q, got %q", "detail", got)
+	}
+	if len(detail.events) != 1 || detail.events[0] != "appeared" {
+		t.Fatalf("expected detail events [appeared], got %v", detail.events)
+	}
+
+	// Use a custom screen that changes View on appear.
+	adapter := &appearStateScreen{viewText: "not-visited"}
+	model = NewStack(newLifecycleScreen("root2"))
+	model, _ = model.Update(PushMsg{Screen: adapter})
+
+	stack = model.(Stack)
+	if got := stack.View(); got != "visited" {
+		t.Fatalf("expected view %q after appear, got %q", "visited", got)
+	}
+}
+
+// appearStateScreen changes its view on ScreenAppearedMsg.
+type appearStateScreen struct {
+	viewText string
+}
+
+func (s *appearStateScreen) Init() tea.Cmd { return nil }
+func (s *appearStateScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(ScreenAppearedMsg); ok {
+		s.viewText = "visited"
+	}
+	return s, nil
+}
+func (s *appearStateScreen) View() string { return s.viewText }
+
+func TestLifecycleDisappearedReturnsCmd(t *testing.T) {
+	type cleanupMsg struct{}
+	root := newLifecycleScreen("root")
+	root.onDisappear = func() tea.Msg { return cleanupMsg{} }
+	detail := newLifecycleScreen("detail")
+
+	var model tea.Model = NewStack(root)
+	_, cmd := model.Update(PushMsg{Screen: detail})
+
+	// The batched command should include root's onDisappear command.
+	if cmd == nil {
+		t.Fatal("expected command from disappeared handler")
+	}
+}
+
+func TestLifecycleDisappearedStatePersists(t *testing.T) {
+	// Screen that changes viewText when it receives ScreenDisappearedMsg.
+	root := &disappearStateScreen{viewText: "active"}
+	var model tea.Model = NewStack(root)
+
+	// Push detail — root receives ScreenDisappearedMsg, sets viewText to "hidden".
+	model, _ = model.Update(PushMsg{Screen: newLifecycleScreen("detail")})
+
+	// Pop detail — root is revealed.
+	model, _ = model.Update(PopMsg{})
+
+	// Root's viewText should reflect the state change from disappeared.
+	stack := model.(Stack)
+	if got := stack.View(); got != "hidden" {
+		t.Fatalf("expected view %q after disappear+reappear, got %q", "hidden", got)
+	}
+}
+
+// disappearStateScreen changes its view on ScreenDisappearedMsg.
+type disappearStateScreen struct {
+	viewText string
+}
+
+func (s *disappearStateScreen) Init() tea.Cmd { return nil }
+func (s *disappearStateScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(ScreenDisappearedMsg); ok {
+		s.viewText = "hidden"
+	}
+	return s, nil
+}
+func (s *disappearStateScreen) View() string { return s.viewText }
 
 // T030: Re-entrant stack modification during lifecycle.
 func TestLifecycleReentrantPush(t *testing.T) {

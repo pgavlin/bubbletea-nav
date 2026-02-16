@@ -24,10 +24,10 @@ tests/
 Go 1.25+ (module minimum TBD by `go.mod`): Follow standard conventions
 
 ## Recent Changes
-- 002-focus-message-routing: Added Go 1.25+ (per existing `go.mod`) + `github.com/charmbracelet/bubbletea` v1.3.10
+- 004-unify-tea-model: Added Go 1.25+ (per existing `go.mod`) + `github.com/charmbracelet/bubbletea` v1.3.10
+- 003-lifecycle-msg-routing: Added Go 1.25+ (per existing `go.mod`) + `github.com/charmbracelet/bubbletea` v1.3.10
 - 002-focus-message-routing: Added Go 1.25+ (per existing `go.mod`) + `github.com/charmbracelet/bubbletea` v1.3.10
 
-- 001-screen-nav: Added Go 1.25+ (module minimum TBD by `go.mod`) + `github.com/charmbracelet/bubbletea` v1.3.x
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

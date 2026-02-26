@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	nav "github.com/pgavlin/bubbletea-nav"
 )
 
@@ -29,8 +29,8 @@ func (s homeScreen) Init() tea.Cmd { return nil }
 
 func (s homeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
+	case tea.KeyPressMsg:
+		switch msg.Code {
 		case tea.KeyUp:
 			if s.selected > 0 {
 				s.selected--
@@ -41,14 +41,15 @@ func (s homeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case tea.KeyEnter:
 			return s, nav.Push(newDetailScreen(s.items[s.selected]))
-		case tea.KeyCtrlC:
+		}
+		if msg.String() == "ctrl+c" {
 			return s, tea.Quit
 		}
 	}
 	return s, nil
 }
 
-func (s homeScreen) View() string {
+func (s homeScreen) View() tea.View {
 	var b strings.Builder
 	b.WriteString("Home Screen\n\n")
 	for i, item := range s.items {
@@ -59,7 +60,7 @@ func (s homeScreen) View() string {
 		b.WriteString(cursor + item + "\n")
 	}
 	b.WriteString("\nEnter: view detail | ctrl+c: quit")
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // -- Detail Screen --
@@ -76,19 +77,20 @@ func (s detailScreen) Init() tea.Cmd { return nil }
 
 func (s detailScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
+	case tea.KeyPressMsg:
+		switch msg.Code {
 		case tea.KeyEscape:
 			return s, nav.Pop()
-		case tea.KeyCtrlC:
+		}
+		if msg.String() == "ctrl+c" {
 			return s, tea.Quit
 		}
 	}
 	return s, nil
 }
 
-func (s detailScreen) View() string {
-	return fmt.Sprintf("Detail Screen\n\nViewing: %s\n\nEsc: go back | ctrl+c: quit", s.item)
+func (s detailScreen) View() tea.View {
+	return tea.NewView(fmt.Sprintf("Detail Screen\n\nViewing: %s\n\nEsc: go back | ctrl+c: quit", s.item))
 }
 
 // -- Main --

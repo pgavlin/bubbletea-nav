@@ -3,7 +3,7 @@ package nav
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // mockFocusable is a minimal tea.Model for focus testing.
@@ -24,7 +24,7 @@ func (f *mockFocusable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	f.messages = append(f.messages, msg)
 	return f, nil
 }
-func (f *mockFocusable) View() string { return "" }
+func (f *mockFocusable) View() tea.View { return tea.NewView("") }
 
 // mockBoundedFocusable is a tea.Model with Bounded for mouse testing.
 type mockBoundedFocusable struct {
@@ -36,23 +36,22 @@ func (f *mockBoundedFocusable) Bounds() (x, y, width, height int) {
 	return f.x, f.y, f.w, f.h
 }
 
-// tabMsg creates a KeyMsg for Tab.
-func tabMsg() tea.KeyMsg {
-	return tea.KeyMsg{Type: tea.KeyTab}
+// tabMsg creates a KeyPressMsg for Tab.
+func tabMsg() tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: tea.KeyTab}
 }
 
-// shiftTabMsg creates a KeyMsg for Shift+Tab.
-func shiftTabMsg() tea.KeyMsg {
-	return tea.KeyMsg{Type: tea.KeyShiftTab}
+// shiftTabMsg creates a KeyPressMsg for Shift+Tab.
+func shiftTabMsg() tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
 }
 
-// mouseClick creates a MouseMsg press at (x, y).
-func mouseClick(x, y int) tea.MouseMsg {
-	return tea.MouseMsg{
+// mouseClick creates a MouseClickMsg at (x, y).
+func mouseClick(x, y int) tea.MouseClickMsg {
+	return tea.MouseClickMsg{
 		X:      x,
 		Y:      y,
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonLeft,
+		Button: tea.MouseLeft,
 	}
 }
 
@@ -222,10 +221,9 @@ func TestFocusManagerMouseClick(t *testing.T) {
 		}
 		fm, _ := NewFocusManager(items[0], items[1])
 
-		releaseMsg := tea.MouseMsg{
+		releaseMsg := tea.MouseReleaseMsg{
 			X: 5, Y: 1,
-			Action: tea.MouseActionRelease,
-			Button: tea.MouseButtonLeft,
+			Button: tea.MouseLeft,
 		}
 		fm, _ = fm.Update(releaseMsg)
 		if fm.FocusedIndex() != 0 {
@@ -517,7 +515,7 @@ func TestFocusManagerTabConsumed(t *testing.T) {
 		// Items should only have received FocusMsg/BlurMsg, not the Tab key.
 		for i, item := range items {
 			for _, msg := range item.messages {
-				if _, ok := msg.(tea.KeyMsg); ok {
+				if _, ok := msg.(tea.KeyPressMsg); ok {
 					t.Fatalf("item %d should not receive tab key message", i)
 				}
 			}
@@ -542,7 +540,7 @@ func TestFocusManagerTabConsumed(t *testing.T) {
 		// Items should only have received FocusMsg/BlurMsg, not the Shift+Tab key.
 		for i, item := range items {
 			for _, msg := range item.messages {
-				if _, ok := msg.(tea.KeyMsg); ok {
+				if _, ok := msg.(tea.KeyPressMsg); ok {
 					t.Fatalf("item %d should not receive shift+tab key message", i)
 				}
 			}
@@ -574,7 +572,7 @@ func TestFocusManagerMouseClickForwarding(t *testing.T) {
 		// Click was forwarded to the newly focused item (among other messages).
 		hasMouseMsg := false
 		for _, msg := range items[1].messages {
-			if _, ok := msg.(tea.MouseMsg); ok {
+			if _, ok := msg.(tea.MouseClickMsg); ok {
 				hasMouseMsg = true
 			}
 		}
@@ -584,7 +582,7 @@ func TestFocusManagerMouseClickForwarding(t *testing.T) {
 		// Old focused item should have received BlurMsg but NOT the click.
 		hasClick := false
 		for _, msg := range items[0].messages {
-			if _, ok := msg.(tea.MouseMsg); ok {
+			if _, ok := msg.(tea.MouseClickMsg); ok {
 				hasClick = true
 			}
 		}
@@ -616,7 +614,7 @@ func TestFocusManagerMouseClickForwarding(t *testing.T) {
 		// Click forwarded to focused item.
 		hasMouseMsg := false
 		for _, msg := range items[0].messages {
-			if _, ok := msg.(tea.MouseMsg); ok {
+			if _, ok := msg.(tea.MouseClickMsg); ok {
 				hasMouseMsg = true
 			}
 		}
@@ -647,7 +645,7 @@ func TestFocusManagerMouseClickForwarding(t *testing.T) {
 		// Click routed to focused item via default path.
 		hasMouseMsg := false
 		for _, msg := range items[0].messages {
-			if _, ok := msg.(tea.MouseMsg); ok {
+			if _, ok := msg.(tea.MouseClickMsg); ok {
 				hasMouseMsg = true
 			}
 		}
@@ -672,10 +670,9 @@ func TestFocusManagerMouseClickForwarding(t *testing.T) {
 			item.messages = nil
 		}
 
-		releaseMsg := tea.MouseMsg{
+		releaseMsg := tea.MouseReleaseMsg{
 			X: 5, Y: 1,
-			Action: tea.MouseActionRelease,
-			Button: tea.MouseButtonLeft,
+			Button: tea.MouseLeft,
 		}
 		fm, _ = fm.Update(releaseMsg)
 

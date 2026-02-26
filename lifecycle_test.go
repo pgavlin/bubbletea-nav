@@ -3,7 +3,7 @@ package nav
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // lifecycleScreen records lifecycle events via Update.
@@ -32,7 +32,7 @@ func (s *lifecycleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return s, nil
 }
-func (s *lifecycleScreen) View() string { return s.viewText }
+func (s *lifecycleScreen) View() tea.View { return tea.NewView(s.viewText) }
 
 // T029: Lifecycle events for push, pop, replace, and non-lifecycle screens.
 func TestLifecyclePush(t *testing.T) {
@@ -179,7 +179,7 @@ func TestLifecycleAppearedStatePersists(t *testing.T) {
 	// The lifecycleScreen mock appends "appeared" to events.
 	// Verify the state change persists via the stack's View.
 	stack := model.(Stack)
-	if got := stack.View(); got != "detail" {
+	if got := stack.View().Content; got != "detail" {
 		t.Fatalf("expected view %q, got %q", "detail", got)
 	}
 	if len(detail.events) != 1 || detail.events[0] != "appeared" {
@@ -192,7 +192,7 @@ func TestLifecycleAppearedStatePersists(t *testing.T) {
 	model, _ = model.Update(PushMsg{Screen: adapter})
 
 	stack = model.(Stack)
-	if got := stack.View(); got != "visited" {
+	if got := stack.View().Content; got != "visited" {
 		t.Fatalf("expected view %q after appear, got %q", "visited", got)
 	}
 }
@@ -209,7 +209,7 @@ func (s *appearStateScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return s, nil
 }
-func (s *appearStateScreen) View() string { return s.viewText }
+func (s *appearStateScreen) View() tea.View { return tea.NewView(s.viewText) }
 
 func TestLifecycleDisappearedReturnsCmd(t *testing.T) {
 	type cleanupMsg struct{}
@@ -239,7 +239,7 @@ func TestLifecycleDisappearedStatePersists(t *testing.T) {
 
 	// Root's viewText should reflect the state change from disappeared.
 	stack := model.(Stack)
-	if got := stack.View(); got != "hidden" {
+	if got := stack.View().Content; got != "hidden" {
 		t.Fatalf("expected view %q after disappear+reappear, got %q", "hidden", got)
 	}
 }
@@ -256,7 +256,7 @@ func (s *disappearStateScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return s, nil
 }
-func (s *disappearStateScreen) View() string { return s.viewText }
+func (s *disappearStateScreen) View() tea.View { return tea.NewView(s.viewText) }
 
 // T030: Re-entrant stack modification during lifecycle.
 func TestLifecycleReentrantPush(t *testing.T) {
@@ -285,7 +285,7 @@ func TestLifecycleReentrantPush(t *testing.T) {
 	if stack.Depth() != 3 {
 		t.Fatalf("expected depth 3 (root->A->B), got %d", stack.Depth())
 	}
-	if got := stack.View(); got != "B" {
+	if got := stack.View().Content; got != "B" {
 		t.Fatalf("expected active view %q, got %q", "B", got)
 	}
 }

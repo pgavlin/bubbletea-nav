@@ -3,7 +3,7 @@ package nav
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // PushMsg requests pushing a screen onto the navigation stack.
@@ -169,7 +169,7 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the active screen.
-func (s Stack) View() string {
+func (s Stack) View() tea.View {
 	return s.screens[len(s.screens)-1].View()
 }
 

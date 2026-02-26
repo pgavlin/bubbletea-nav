@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	nav "github.com/pgavlin/bubbletea-nav"
 )
 
@@ -32,11 +32,10 @@ func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f.focused = true
 	case nav.BlurMsg:
 		f.focused = false
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyRunes:
-			f.value += string(msg.Runes)
-		case tea.KeyBackspace:
+	case tea.KeyPressMsg:
+		if msg.Text != "" {
+			f.value += msg.Text
+		} else if msg.Code == tea.KeyBackspace {
 			if len(f.value) > 0 {
 				f.value = f.value[:len(f.value)-1]
 			}
@@ -45,11 +44,11 @@ func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return f, nil
 }
 
-func (f *textField) View() string {
+func (f *textField) View() tea.View {
 	if f.focused {
-		return fmt.Sprintf("> %s: [%s]", f.label, f.value)
+		return tea.NewView(fmt.Sprintf("> %s: [%s]", f.label, f.value))
 	}
-	return fmt.Sprintf("  %s:  %s", f.label, f.value)
+	return tea.NewView(fmt.Sprintf("  %s:  %s", f.label, f.value))
 }
 
 // -- formModel: top-level tea.Model --
@@ -76,9 +75,9 @@ func (m formModel) Init() tea.Cmd { return nil }
 
 func (m formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle quit keys before delegating to FocusManager.
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEscape:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		switch msg.String() {
+		case "ctrl+c", "esc":
 			return m, tea.Quit
 		}
 	}
@@ -88,14 +87,14 @@ func (m formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m formModel) View() string {
+func (m formModel) View() tea.View {
 	var b strings.Builder
 	b.WriteString("Focus Routing Demo\n\n")
 	for _, f := range m.fields {
-		b.WriteString(f.View() + "\n")
+		b.WriteString(f.View().Content + "\n")
 	}
 	b.WriteString("\ntab: next field | shift+tab: prev field | esc: quit")
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // -- Main --

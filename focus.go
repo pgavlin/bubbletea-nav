@@ -3,7 +3,7 @@ package nav
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Bounded is an optional interface for models that support mouse-click
@@ -64,31 +64,29 @@ func (fm FocusManager) Update(msg tea.Msg) (FocusManager, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyTab:
+	case tea.KeyPressMsg:
+		switch {
+		case msg.Code == tea.KeyTab && !msg.Mod.Contains(tea.ModShift):
 			return fm.advanceFocus(1)
-		case tea.KeyShiftTab:
+		case msg.Code == tea.KeyTab && msg.Mod.Contains(tea.ModShift):
 			return fm.advanceFocus(-1)
 		}
 
-	case tea.MouseMsg:
-		if msg.Action == tea.MouseActionPress {
-			for i, item := range fm.items {
-				b, ok := item.(Bounded)
-				if !ok {
-					continue
+	case tea.MouseClickMsg:
+		for i, item := range fm.items {
+			b, ok := item.(Bounded)
+			if !ok {
+				continue
+			}
+			bx, by, bw, bh := b.Bounds()
+			if msg.X >= bx && msg.X < bx+bw && msg.Y >= by && msg.Y < by+bh {
+				if i != fm.focusIndex {
+					var focusCmd tea.Cmd
+					fm, focusCmd = fm.setFocus(i)
+					routeCmd := fm.routeMessage(msg)
+					return fm, tea.Batch(focusCmd, routeCmd)
 				}
-				bx, by, bw, bh := b.Bounds()
-				if msg.X >= bx && msg.X < bx+bw && msg.Y >= by && msg.Y < by+bh {
-					if i != fm.focusIndex {
-						var focusCmd tea.Cmd
-						fm, focusCmd = fm.setFocus(i)
-						routeCmd := fm.routeMessage(msg)
-						return fm, tea.Batch(focusCmd, routeCmd)
-					}
-					return fm, fm.routeMessage(msg)
-				}
+				return fm, fm.routeMessage(msg)
 			}
 		}
 	}

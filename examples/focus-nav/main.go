@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	nav "github.com/pgavlin/bubbletea-nav"
 )
 
@@ -32,11 +32,10 @@ func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f.focused = true
 	case nav.BlurMsg:
 		f.focused = false
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyRunes:
-			f.value += string(msg.Runes)
-		case tea.KeyBackspace:
+	case tea.KeyPressMsg:
+		if msg.Text != "" {
+			f.value += msg.Text
+		} else if msg.Code == tea.KeyBackspace {
 			if len(f.value) > 0 {
 				f.value = f.value[:len(f.value)-1]
 			}
@@ -45,11 +44,11 @@ func (f *textField) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return f, nil
 }
 
-func (f *textField) View() string {
+func (f *textField) View() tea.View {
 	if f.focused {
-		return fmt.Sprintf("> %s: [%s]", f.label, f.value)
+		return tea.NewView(fmt.Sprintf("> %s: [%s]", f.label, f.value))
 	}
-	return fmt.Sprintf("  %s:  %s", f.label, f.value)
+	return tea.NewView(fmt.Sprintf("  %s:  %s", f.label, f.value))
 }
 
 // -- contact data --
@@ -78,8 +77,8 @@ func (s listScreen) Init() tea.Cmd { return nil }
 
 func (s listScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
+	case tea.KeyPressMsg:
+		switch msg.Code {
 		case tea.KeyUp:
 			if s.selected > 0 {
 				s.selected--
@@ -91,14 +90,15 @@ func (s listScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			c := contacts[s.selected]
 			return s, nav.Push(newEditScreen(s.selected, c))
-		case tea.KeyCtrlC:
+		}
+		if msg.String() == "ctrl+c" {
 			return s, tea.Quit
 		}
 	}
 	return s, nil
 }
 
-func (s listScreen) View() string {
+func (s listScreen) View() tea.View {
 	var b strings.Builder
 	b.WriteString("Contacts\n\n")
 	for i, c := range contacts {
@@ -109,7 +109,7 @@ func (s listScreen) View() string {
 		b.WriteString(cursor + c.name + "\n")
 	}
 	b.WriteString("\nenter: edit | ctrl+c: quit")
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // -- editScreen: form with FocusManager --
@@ -138,8 +138,8 @@ func (s editScreen) Init() tea.Cmd { return nil }
 
 func (s editScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle screen-level keys before delegating to FocusManager.
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.Type {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		switch msg.Code {
 		case tea.KeyEscape:
 			// Save edits back and pop.
 			contacts[s.index] = contact{
@@ -148,7 +148,8 @@ func (s editScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				phone: s.fields[2].value,
 			}
 			return s, nav.Pop()
-		case tea.KeyCtrlC:
+		}
+		if msg.String() == "ctrl+c" {
 			return s, tea.Quit
 		}
 	}
@@ -158,14 +159,14 @@ func (s editScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-func (s editScreen) View() string {
+func (s editScreen) View() tea.View {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Edit Contact #%d\n\n", s.index+1))
 	for _, f := range s.fields {
-		b.WriteString(f.View() + "\n")
+		b.WriteString(f.View().Content + "\n")
 	}
 	b.WriteString("\ntab: next field | shift+tab: prev | esc: save & back | ctrl+c: quit")
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // -- Main --

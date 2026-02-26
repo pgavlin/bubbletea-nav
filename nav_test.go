@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // mockScreen is a minimal tea.Model for testing.
@@ -24,7 +24,7 @@ func (s mockScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	s.lastMsg = msg
 	return s, nil
 }
-func (s mockScreen) View() string { return s.viewText }
+func (s mockScreen) View() tea.View { return tea.NewView(s.viewText) }
 
 // recordingScreen implements tea.Model, recording all messages received.
 type recordingScreen struct {
@@ -37,7 +37,7 @@ func (s recordingScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	s.messages = append(s.messages, msg)
 	return s, nil
 }
-func (s recordingScreen) View() string { return s.viewText }
+func (s recordingScreen) View() tea.View { return tea.NewView(s.viewText) }
 
 // T014: Tests for NewStack, Init, View, Depth, String.
 func TestNewStack(t *testing.T) {
@@ -83,7 +83,7 @@ func TestStackInit(t *testing.T) {
 func TestStackView(t *testing.T) {
 	root := newMockScreen("root-view")
 	s := NewStack(root)
-	if got := s.View(); got != "root-view" {
+	if got := s.View().Content; got != "root-view" {
 		t.Fatalf("expected %q, got %q", "root-view", got)
 	}
 }
@@ -125,7 +125,7 @@ func TestStackPush(t *testing.T) {
 			if stack.Depth() != tt.wantDepth {
 				t.Fatalf("expected depth %d, got %d", tt.wantDepth, stack.Depth())
 			}
-			if got := stack.View(); got != tt.wantActiveView {
+			if got := stack.View().Content; got != tt.wantActiveView {
 				t.Fatalf("expected view %q, got %q", tt.wantActiveView, got)
 			}
 		})
@@ -164,7 +164,7 @@ func TestStackPop(t *testing.T) {
 			if stack.Depth() != tt.wantDepth {
 				t.Fatalf("expected depth %d, got %d", tt.wantDepth, stack.Depth())
 			}
-			if got := stack.View(); got != tt.wantActiveView {
+			if got := stack.View().Content; got != tt.wantActiveView {
 				t.Fatalf("expected view %q, got %q", tt.wantActiveView, got)
 			}
 		})
@@ -179,7 +179,7 @@ func TestStackPopPreservesState(t *testing.T) {
 	model, _ = model.Update(PopMsg{})
 
 	stack := model.(Stack)
-	if got := stack.View(); got != "root-with-state" {
+	if got := stack.View().Content; got != "root-with-state" {
 		t.Fatalf("expected preserved view %q, got %q", "root-with-state", got)
 	}
 }
@@ -195,14 +195,14 @@ func TestStackReplace(t *testing.T) {
 	if stack.Depth() != 2 {
 		t.Fatalf("expected depth 2 after replace, got %d", stack.Depth())
 	}
-	if got := stack.View(); got != "new" {
+	if got := stack.View().Content; got != "new" {
 		t.Fatalf("expected view %q, got %q", "new", got)
 	}
 
 	// Pop to verify root is still there.
 	model, _ = model.Update(PopMsg{})
 	stack = model.(Stack)
-	if got := stack.View(); got != "root" {
+	if got := stack.View().Content; got != "root" {
 		t.Fatalf("expected root view %q, got %q", "root", got)
 	}
 }
@@ -300,7 +300,7 @@ func (s *focusScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	s.focus, cmd = s.focus.Update(msg)
 	return s, cmd
 }
-func (s *focusScreen) View() string { return s.id }
+func (s *focusScreen) View() tea.View { return tea.NewView(s.id) }
 
 // T031: Screen A focus preserved across push/pop cycle.
 func TestIntegrationFocusPreservedAcrossPushPop(t *testing.T) {
@@ -308,7 +308,7 @@ func TestIntegrationFocusPreservedAcrossPushPop(t *testing.T) {
 	var model tea.Model = NewStack(screenA)
 
 	// Move focus to item 1 on Screen A.
-	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if screenA.focus.FocusedIndex() != 1 {
 		t.Fatalf("expected A focus at 1, got %d", screenA.focus.FocusedIndex())
 	}
@@ -339,8 +339,8 @@ func TestIntegrationNewScreenDefaultFocus(t *testing.T) {
 	// Push first Screen B and move focus.
 	screenB1 := newFocusScreen("B1", 3)
 	model, _ = model.Update(PushMsg{Screen: screenB1})
-	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
-	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if screenB1.focus.FocusedIndex() != 2 {
 		t.Fatalf("expected B1 focus at 2, got %d", screenB1.focus.FocusedIndex())
 	}

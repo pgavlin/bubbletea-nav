@@ -178,6 +178,15 @@ func (s Stack) Depth() int {
 	return len(s.screens)
 }
 
+// Top returns the active (topmost) screen on the stack. Returns nil if
+// the stack is empty.
+func (s Stack) Top() tea.Model {
+	if len(s.screens) == 0 {
+		return nil
+	}
+	return s.screens[len(s.screens)-1]
+}
+
 // String returns a human-readable representation of the stack.
 func (s Stack) String() string {
 	return fmt.Sprintf("Stack[%d screens, active: %d]", len(s.screens), len(s.screens)-1)

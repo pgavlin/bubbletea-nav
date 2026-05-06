@@ -95,7 +95,7 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		updated, cmd = s.screens[newIdx].Update(ScreenAppearedMsg{})
+		updated, cmd = s.screens[newIdx].Update(ScreenAppearedMsg{Cause: ScreenAppearCausePushed})
 		s.screens[newIdx] = updated
 		if cmd != nil {
 			cmds = append(cmds, cmd)
@@ -120,7 +120,7 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{})
+		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{Cause: ScreenAppearCauseRevealed})
 		s.screens[topIdx] = updated
 		if cmd != nil {
 			cmds = append(cmds, cmd)
@@ -138,7 +138,7 @@ func (s Stack) handleNav(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{})
+		updated, cmd := s.screens[topIdx].Update(ScreenAppearedMsg{Cause: ScreenAppearCauseReplaced})
 		s.screens[topIdx] = updated
 		if cmd != nil {
 			cmds = append(cmds, cmd)

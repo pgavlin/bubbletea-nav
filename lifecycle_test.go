@@ -289,3 +289,65 @@ func TestLifecycleReentrantPush(t *testing.T) {
 		t.Fatalf("expected active view %q, got %q", "B", got)
 	}
 }
+
+// causeRecordingScreen records the Cause of every ScreenAppearedMsg.
+type causeRecordingScreen struct {
+	id     string
+	causes []ScreenAppearCause
+}
+
+func newCauseRecordingScreen(id string) *causeRecordingScreen {
+	return &causeRecordingScreen{id: id}
+}
+
+func (s *causeRecordingScreen) Init() tea.Cmd { return nil }
+func (s *causeRecordingScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m, ok := msg.(ScreenAppearedMsg); ok {
+		s.causes = append(s.causes, m.Cause)
+	}
+	return s, nil
+}
+func (s *causeRecordingScreen) View() tea.View { return tea.NewView(s.id) }
+
+func TestScreenAppearedCausePushed(t *testing.T) {
+	root := newCauseRecordingScreen("root")
+	detail := newCauseRecordingScreen("detail")
+
+	var model tea.Model = NewStack(root)
+	model, _ = model.Update(PushMsg{Screen: detail})
+
+	if len(detail.causes) != 1 || detail.causes[0] != ScreenAppearCausePushed {
+		t.Fatalf("expected detail causes [Pushed], got %v", detail.causes)
+	}
+}
+
+func TestScreenAppearedCauseRevealed(t *testing.T) {
+	root := newCauseRecordingScreen("root")
+	detail := newCauseRecordingScreen("detail")
+
+	var model tea.Model = NewStack(root)
+	model, _ = model.Update(PushMsg{Screen: detail})
+	root.causes = nil // reset to isolate the pop-back
+
+	model, _ = model.Update(PopMsg{})
+
+	if len(root.causes) != 1 || root.causes[0] != ScreenAppearCauseRevealed {
+		t.Fatalf("expected root causes [Revealed] after pop, got %v", root.causes)
+	}
+}
+
+func TestScreenAppearedCauseReplaced(t *testing.T) {
+	root := newCauseRecordingScreen("root")
+	old := newCauseRecordingScreen("old")
+	replacement := newCauseRecordingScreen("new")
+
+	var model tea.Model = NewStack(root)
+	model, _ = model.Update(PushMsg{Screen: old})
+	replacement.causes = nil // sanity: replacement hasn't been on stack yet
+
+	model, _ = model.Update(ReplaceMsg{Screen: replacement})
+
+	if len(replacement.causes) != 1 || replacement.causes[0] != ScreenAppearCauseReplaced {
+		t.Fatalf("expected replacement causes [Replaced], got %v", replacement.causes)
+	}
+}
